@@ -8,6 +8,8 @@
 #include <sys/wait.h>
 #include <sys/poll.h>
 #include <errno.h>
+#include <time.h>
+#include <stdarg.h>
 #include <wayland-client.h>
 #include "ext-idle-notify-v1-client-protocol.h"
 
@@ -20,6 +22,26 @@ static struct wl_seat *seat = NULL;
 static struct ext_idle_notifier_v1 *notifier = NULL;
 static struct ext_idle_notification_v1 *notification = NULL;
 static pid_t locker_pid = -1;
+static int locker_running = 1;
+static int verbose = 0;
+
+static void log_info(const char *fmt, ...) {
+    if (verbose) {
+        time_t rawtime;
+        struct tm timeinfo;
+        char time_str[32];
+        time(&rawtime);
+        localtime_r(&rawtime, &timeinfo);
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+
+        fprintf(stderr, "%s - ", time_str);
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(stderr, fmt, args);
+        va_end(args);
+        fprintf(stderr, "\n");
+    }
+}
 
 static void run_command(const char *cmd) {
     pid_t pid = fork();
@@ -34,12 +56,22 @@ static void run_command(const char *cmd) {
 static void notification_idled(void *data, struct ext_idle_notification_v1 *notif) {
     (void)data;
     (void)notif;
+    if (!locker_running) {
+        return;
+    }
+    log_info("idle state");
+    log_info("exec: %s", CMD_DISPLAY_OFF);
     run_command(CMD_DISPLAY_OFF);
 }
 
 static void notification_resumed(void *data, struct ext_idle_notification_v1 *notif) {
     (void)data;
     (void)notif;
+    if (!locker_running) {
+        return;
+    }
+    log_info("active state");
+    log_info("exec: %s", CMD_DISPLAY_ON);
     run_command(CMD_DISPLAY_ON);
 }
 
@@ -73,6 +105,28 @@ static const struct wl_registry_listener registry_listener = {
 };
 
 int main(int argc, char *argv[]) {
+    char **exec_args = NULL;
+    int i = 1;
+    while (i < argc) {
+        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
+            verbose = 1;
+            i++;
+        } else if (strcmp(argv[i], "--") == 0) {
+            if (i + 1 < argc) {
+                exec_args = &argv[i + 1];
+            }
+            break;
+        } else {
+            exec_args = &argv[i];
+            break;
+        }
+    }
+
+    if (!exec_args) {
+        static char *default_args[] = {DEFAULT_LOCKER_ARGS, NULL};
+        exec_args = default_args;
+    }
+
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGCHLD);
@@ -87,6 +141,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    log_info("connecting to wayland display");
     struct wl_display *display = wl_display_connect(NULL);
     if (!display) {
         fprintf(stderr, "Failed to connect to Wayland display\n");
@@ -94,9 +149,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    log_info("binding registry");
     struct wl_registry *registry = wl_display_get_registry(display);
     wl_registry_add_listener(registry, &registry_listener, NULL);
 
+    log_info("performing display roundtrips");
     wl_display_roundtrip(display);
     wl_display_roundtrip(display);
 
@@ -117,8 +174,10 @@ int main(int argc, char *argv[]) {
 
     uint32_t notifier_version = ext_idle_notifier_v1_get_version(notifier);
     if (notifier_version >= 2) {
+        log_info("creating input idle notification (ignoring inhibitors)");
         notification = ext_idle_notifier_v1_get_input_idle_notification(notifier, LOCK_TIMEOUT_MS, seat);
     } else {
+        log_info("creating standard idle notification");
         notification = ext_idle_notifier_v1_get_idle_notification(notifier, LOCK_TIMEOUT_MS, seat);
     }
 
@@ -131,8 +190,10 @@ int main(int argc, char *argv[]) {
     }
 
     ext_idle_notification_v1_add_listener(notification, &notification_listener, NULL);
+    log_info("register timeout: %d ms", LOCK_TIMEOUT_MS);
     wl_display_flush(display);
 
+    log_info("forking locker process");
     locker_pid = fork();
     if (locker_pid < 0) {
         perror("fork");
@@ -146,18 +207,12 @@ int main(int argc, char *argv[]) {
         sigset_t empty_mask;
         sigemptyset(&empty_mask);
         sigprocmask(SIG_SETMASK, &empty_mask, NULL);
-
-        char **exec_args;
-        if (argc > 1) {
-            exec_args = &argv[1];
-        } else {
-            static char *default_args[] = {DEFAULT_LOCKER_ARGS, NULL};
-            exec_args = default_args;
-        }
         execvp(exec_args[0], exec_args);
         perror("execvp");
         _exit(1);
     }
+
+    log_info("locker process spawned with pid %d", locker_pid);
 
     int wl_fd = wl_display_get_fd(display);
     struct pollfd fds[2] = {
@@ -165,6 +220,7 @@ int main(int argc, char *argv[]) {
         { .fd = sigfd, .events = POLLIN }
     };
 
+    log_info("entering event loop");
     int running = 1;
     while (running) {
         while (wl_display_prepare_read(display) != 0) {
@@ -208,6 +264,8 @@ int main(int argc, char *argv[]) {
                     int status;
                     pid_t waited = waitpid(locker_pid, &status, WNOHANG);
                     if (waited == locker_pid) {
+                        log_info("locker process %d exited", locker_pid);
+                        locker_running = 0;
                         running = 0;
                     }
                     while (waitpid(-1, &status, WNOHANG) > 0);
@@ -216,6 +274,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    log_info("exec: %s", CMD_DISPLAY_ON);
     run_command(CMD_DISPLAY_ON);
 
     ext_idle_notification_v1_destroy(notification);

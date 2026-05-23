@@ -1,52 +1,54 @@
 # qtile-lock
-
-A small frankenstein to lock qtile's wayland session nicely.
-
+A small frankenstein to lock [qtile](https://qtile.org)'s [Wayland](https://wayland.freedesktop.org) session nicely.
 ## How it works
-
-This utility spawns a screen locker (such as `swaylock`) and communicates with the Wayland compositor via `ext-idle-notify-v1` to control display sleep timeouts:
-- When idle for 10 seconds, it powers down the displays using `wlopm --off "*"`.
+This utility spawns a screen locker (such as [`swaylock`](https://github.com/swaywm/swaylock)) and communicates with the Wayland compositor via [`ext-idle-notify-v1`](https://wayland.app/protocols/ext-idle-notify-v1) to control display sleep timeouts:
+- When idle for 10 seconds, it powers down the displays using [`wlopm`](https://sr.ht/~leon_plickat/wlopm) `--off "*"`.
 - On user input activity, it wakes up the displays with `wlopm --on "*"`.
-- When the screen locker process exits (successful unlock), it wakes up the displays, cleans up Wayland references, and terminates.
+- When the screen locker process exits (whether successfully unlocked, crashed, or killed), the utility wakes up the displays, cleans up Wayland references, and terminates.
 
+It mimics the logging scheme of [`dozed`](https://github.com/Gur0v/dozed) when run in verbose mode, acting as an ultra-light version focused specifically on locking the screen and turning it off.
 ## Customization
-
-You can configure settings directly at the top of `qtile_lock.c`:
-
+You can configure compile-time settings directly at the top of `qtile_lock.c`:
 ```c
 #define LOCK_TIMEOUT_MS 10000
 #define CMD_DISPLAY_OFF "wlopm --off \"*\""
 #define CMD_DISPLAY_ON "wlopm --on \"*\""
 #define DEFAULT_LOCKER_ARGS "swaylock", "-c", "000000", "--font", "IBM Plex Sans"
 ```
-
 Recompile the project after making any modifications.
-
-## Build
-
+> [!NOTE]
+> Passing a custom locker command on the command line (using the `--` separator) completely overrides `DEFAULT_LOCKER_ARGS` dynamically without requiring recompilation.
+## Build and Install
 Dependencies:
-- `wayland-client`
-- `wayland-scanner`
-- `wayland-protocols`
-- `gcc`
-- `make`
+- [`wayland-client` / `wayland-scanner` / `wayland-protocols`](https://gitlab.freedesktop.org/wayland/wayland)
+- [`gcc`](https://gcc.gnu.org)
+- [`make`](https://www.gnu.org/software/make)
 
 Build the executable:
-
 ```bash
 make
 ```
-
-## Usage
-
-Lock using the default command:
-
+Install:
 ```bash
-./qtile-lock
+sudo make install
 ```
-
-Or pass a custom locker command and arguments:
-
+Uninstall:
 ```bash
-./qtile-lock swaylock -c 112233
+sudo make uninstall
+```
+## Usage
+Lock using the default locker command:
+```bash
+qtile-lock
+```
+Use the `-v` or `--verbose` flags to output debug logs prefixed with a timestamp (identical to [`dozed`](https://github.com/Gur0v/dozed) logging):
+```bash
+qtile-lock -v
+```
+To pass custom locker commands and arguments (without flag conflict), use the standard `--` separator:
+```bash
+# Lock with custom swaylock options (overriding DEFAULT_LOCKER_ARGS):
+qtile-lock -- swaylock -c 112233
+# Lock with custom options and verbose logging:
+qtile-lock -v -- swaylock -c 112233
 ```
