@@ -1,12 +1,11 @@
 # qtile-lock
-A small frankenstein to lock [qtile](https://qtile.org)'s [Wayland](https://wayland.freedesktop.org) session nicely.
+A small frankenstein to lock qtile's Wayland session nicely.
 ## How it works
 This utility spawns a screen locker (such as [`swaylock`](https://github.com/swaywm/swaylock)) and communicates with the Wayland compositor via [`ext-idle-notify-v1`](https://wayland.app/protocols/ext-idle-notify-v1) to control display sleep timeouts:
 - When idle for 10 seconds, it powers down the displays using [`wlopm`](https://sr.ht/~leon_plickat/wlopm) `--off "*"`.
 - On user input activity, it wakes up the displays with `wlopm --on "*"`.
 - When the screen locker process exits (whether successfully unlocked, crashed, or killed), the utility wakes up the displays, cleans up Wayland references, and terminates.
 
-It mimics the logging scheme of [`dozed`](https://github.com/Gur0v/dozed) when run in verbose mode, acting as an ultra-light version focused specifically on locking the screen and turning it off.
 ## Customization
 You can configure compile-time settings directly at the top of `qtile_lock.c`:
 ```c
@@ -20,9 +19,11 @@ Recompile the project after making any modifications.
 > Passing a custom locker command on the command line (using the `--` separator) completely overrides `DEFAULT_LOCKER_ARGS` dynamically without requiring recompilation.
 ## Build and Install
 Dependencies:
-- [`wayland-client` / `wayland-scanner` / `wayland-protocols`](https://gitlab.freedesktop.org/wayland/wayland)
-- [`gcc`](https://gcc.gnu.org)
-- [`make`](https://www.gnu.org/software/make)
+- `wayland-client`
+- `wayland-scanner`
+- `wayland-protocols`
+- `gcc`
+- `make`
 
 Build the executable:
 ```bash
