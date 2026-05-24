@@ -63,7 +63,6 @@ static const struct idle_stage {
     const char   *cmd_resume;
 } idle_stages[] = {
     {  10000, "wlopm --off \"*\"",    "wlopm --on \"*\""  },
- // { 300000, "systemctl suspend",    NULL                 },
 };
 ```
 
