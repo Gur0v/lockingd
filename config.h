@@ -1,7 +1,7 @@
 static const struct idle_stage {
     unsigned int  timeout_ms;
     const char    *cmd_idle;
-    const char   *cmd_resume;
+    const char    *cmd_resume;
 } idle_stages[] = {
     {  10000, "wlopm --off \"*\"", "wlopm --on \"*\"" },
  // { 300000, "systemctl suspend", NULL               },
