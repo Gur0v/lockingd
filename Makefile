@@ -6,13 +6,13 @@ WAYLAND_PROTOCOLS_DIR = $(shell pkg-config --variable=pkgdatadir wayland-protoco
 XML_FILE = $(WAYLAND_PROTOCOLS_DIR)/staging/ext-idle-notify/ext-idle-notify-v1.xml
 PREFIX ?= /usr/local
 
-all: qtile-lock
+all: lockingd
 
-qtile-lock: qtile_lock.o ext-idle-notify-v1-protocol.o
-	$(CC) $(CFLAGS) -o qtile-lock qtile_lock.o ext-idle-notify-v1-protocol.o $(LDFLAGS)
+lockingd: lockingd.o ext-idle-notify-v1-protocol.o
+	$(CC) $(CFLAGS) -o lockingd lockingd.o ext-idle-notify-v1-protocol.o $(LDFLAGS)
 
-qtile_lock.o: qtile_lock.c ext-idle-notify-v1-client-protocol.h
-	$(CC) $(CFLAGS) $(INCLUDES) -c qtile_lock.c
+lockingd.o: lockingd.c ext-idle-notify-v1-client-protocol.h
+	$(CC) $(CFLAGS) $(INCLUDES) -c lockingd.c
 
 ext-idle-notify-v1-protocol.o: ext-idle-notify-v1-protocol.c ext-idle-notify-v1-client-protocol.h
 	$(CC) $(CFLAGS) $(INCLUDES) -c ext-idle-notify-v1-protocol.c
@@ -24,12 +24,12 @@ ext-idle-notify-v1-protocol.c: $(XML_FILE)
 	wayland-scanner private-code $(XML_FILE) ext-idle-notify-v1-protocol.c
 
 clean:
-	rm -f qtile-lock *.o ext-idle-notify-v1-client-protocol.h ext-idle-notify-v1-protocol.c
+	rm -f lockingd *.o ext-idle-notify-v1-client-protocol.h ext-idle-notify-v1-protocol.c
 
-install: qtile-lock
-	install -Dm755 qtile-lock $(DESTDIR)$(PREFIX)/bin/qtile-lock
+install: lockingd
+	install -Dm755 lockingd $(DESTDIR)$(PREFIX)/bin/lockingd
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/qtile-lock
+	rm -f $(DESTDIR)$(PREFIX)/bin/lockingd
 
 .PHONY: all clean install uninstall
