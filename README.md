@@ -110,6 +110,6 @@ lockingd -- swaylock -c 112233
 ### Displays off, then suspend
 ```c
 {  10000, "wlopm --off \"*\"",   "wlopm --on \"*\""  },
-{ 300000, "systemctl suspend",   NULL                 },
+{ 300000, "systemctl suspend",   NULL                },
 ```
 The second stage fires five minutes after the first. Because `cmd_resume` is `NULL`, there's no resume command for suspend — the system simply wakes up and the display stage handles turning screens back on.
