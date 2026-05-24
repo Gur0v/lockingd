@@ -59,10 +59,10 @@ The heart of `lockingd`'s configuration is the `idle_stages` array. Each entry d
 ```c
 static const struct idle_stage {
     unsigned int  timeout_ms;
-    const char   *cmd_idle;
-    const char   *cmd_resume;
+    const char    *cmd_idle;
+    const char    *cmd_resume;
 } idle_stages[] = {
-    {  10000, "wlopm --off \"*\"",    "wlopm --on \"*\""  },
+    {  10000, "wlopm --off \"*\"", "wlopm --on \"*\"" },
 };
 ```
 
